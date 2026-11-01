@@ -1,0 +1,56 @@
+# Builds a universal, ad-hoc signed "WB7022 Control.app".
+# Push a tag like v1.2 to publish it as a GitHub release; run it by hand to
+# get the zip as a workflow artifact only.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        env:
+          BUILD: ${{ github.run_number }}
+        run: |
+          # v1.2 → 1.2; manual runs keep the version in Info.plist.
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
+          ./bundle.sh --universal
+
+      - name: Check
+        run: |
+          lipo -archs "WB7022 Control.app/Contents/MacOS/WB7022Control"
+          codesign --verify --strict --verbose=2 "WB7022 Control.app"
+
+      - name: Zip
+        run: ditto -c -k --keepParent "WB7022 Control.app" WB7022-Control.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WB7022-Control
+          path: WB7022-Control.zip
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          Universal build (Apple silicon and Intel), ad-hoc signed, not notarized. Tested only on Apple silicon.
+
+          **First launch:** macOS blocks apps from unidentified developers. Open the app once, then go to System Settings › Privacy & Security and click **Open Anyway**. Or clear the download flag in Terminal:
+
+          ```
+          xattr -dr com.apple.quarantine "/Applications/WB7022 Control.app"
+          ```
+          EOF
+          gh release create "$GITHUB_REF_NAME" WB7022-Control.zip \
+            --title "WB7022 Control ${GITHUB_REF_NAME}" --notes-file notes.md --generate-notes

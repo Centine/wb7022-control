@@ -101,14 +101,22 @@ enum SuggestionCheck {
 }
 
 /// `--render <png>`: draws the controls pane as it looks at launch, offscreen,
-/// for checking layout without a screenshot.
+/// for checking layout without a screenshot. With `--window [--still <image>]`:
+/// the whole window, title bar included, with the image in place of the preview.
+/// Controls draw in their inactive grey; for a screenshot, capture the window
+/// while it's open.
 enum RenderControls {
     static func main(to url: URL, bar: Bool, args: [String] = CommandLine.arguments) {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
         Task { @MainActor in
+            let whole = args.contains("--window")
+            if let i = args.firstIndex(of: "--still"), i + 1 < args.count {
+                CameraModel.shared.stillPreview = NSImage(contentsOfFile: args[i + 1])
+            }
+            let size = whole ? NSSize(width: 1200, height: 760) : NSSize(width: bar ? 1100 : 440, height: 3400)
             // With --bar: the preview's bottom bar at a wide and a narrow width.
-            let content: AnyView = bar
+            let content: AnyView = whole ? AnyView(ContentView().frame(width: size.width, height: size.height)) : bar
                 ? AnyView(VStack(alignment: .leading, spacing: 30) {
                     FPSChart().padding(10).frame(width: 1000, alignment: .leading).border(.gray)
                     PreviewBar().padding(10).frame(width: 1000, alignment: .leading).border(.gray)
@@ -116,12 +124,14 @@ enum RenderControls {
                 }.padding(20).frame(width: 1100, height: 3400, alignment: .top).background(Color(nsColor: .windowBackgroundColor)))
                 : AnyView(ControlsPane().frame(width: 440, height: 3400))
             let host = NSHostingView(rootView: content.environment(CameraModel.shared))
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: bar ? 1100 : 440, height: 3400), styleMask: args.contains("--focused") ? [.titled] : [.borderless],
+            let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
+                                  styleMask: whole ? [.titled, .closable, .miniaturizable, .resizable] : args.contains("--focused") ? [.titled] : [.borderless],
                                   backing: .buffered, defer: false)
+            window.title = "WB7022 Control"
             window.contentView = host
             // A focused window, so controls draw as they do in normal use
             // (macOS greys switches in windows that aren't key).
-            if args.contains("--focused") {
+            if whole || args.contains("--focused") {
                 app.setActivationPolicy(.regular)
                 window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
                 window.makeKeyAndOrderFront(nil)
@@ -140,11 +150,14 @@ enum RenderControls {
                 CameraModel.shared.frameRate = CameraModel.shared.frameRate == "30" ? "60" : "30"
                 try? await Task.sleep(for: .seconds(8))
             } else {
-                try? await Task.sleep(for: .seconds(2))
+                // A whole window waits for the frame-rate chart to fill a little.
+                try? await Task.sleep(for: .seconds(whole ? 20 : 2))
             }
-            host.layoutSubtreeIfNeeded()
-            if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
-                host.cacheDisplay(in: host.bounds, to: rep)
+            // The window's frame view draws the title bar around the content.
+            let target = whole ? (host.superview ?? host) : host
+            target.layoutSubtreeIfNeeded()
+            if let rep = target.bitmapImageRepForCachingDisplay(in: target.bounds) {
+                target.cacheDisplay(in: target.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?.write(to: url)
             }
             if CameraModel.shared.frameRate != originalRate { CameraModel.shared.frameRate = originalRate }

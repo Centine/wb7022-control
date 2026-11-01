@@ -70,8 +70,12 @@ private struct PreviewPane: View {
             ZStack(alignment: .bottomLeading) {
                 Color.black
                 if model.cameraAccess == .authorized && model.connected {
-                    PreviewView(session: model.feed.session, mirrored: model.mirrored)
-                    if model.faceExposure, let face = model.face, model.stats.width > 0 {
+                    if let still = model.stillPreview {
+                        Image(nsImage: still).resizable().aspectRatio(contentMode: .fit)
+                    } else {
+                        PreviewView(session: model.feed.session, mirrored: model.mirrored)
+                    }
+                    if model.faceExposure, model.stillPreview == nil, let face = model.face, model.stats.width > 0 {
                         FaceBox(face: face, frame: CGSize(width: model.stats.width, height: model.stats.height), mirrored: model.mirrored)
                     }
                     Text(model.stats.summary)

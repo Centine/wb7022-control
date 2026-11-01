@@ -4,6 +4,8 @@ A native macOS app for controlling the Dell UltraSharp WB7022 webcam: HDR, field
 
 Not affiliated with or endorsed by Dell. "Dell" and "UltraSharp" are trademarks of Dell Inc.
 
+![WB7022 Control, with a stand-in picture where the camera preview goes](docs/screenshot.png)
+
 > [!NOTE]
 > **This is a vibe-coded utility for one specific webcam,** the Dell UltraSharp WB7022, and only that camera. Dell's own features (HDR, field of view, AI auto framing) sit behind vendor-specific commands in the camera's USB Video Class (UVC) *extension units*. The app's support for them rests on educated guesses about those commands, tested on a single camera, so expect rough edges.
 >
@@ -33,9 +35,19 @@ It doesn't take the camera over, so you can change settings while another app is
 
 ## Requirements
 
-- macOS 14 or later. Tested on Apple silicon.
-- Xcode or the Command Line Tools (Swift 5.9 or later): `xcode-select --install`.
+- macOS 14 or later. Tested only on Apple silicon; the download also runs on Intel Macs, untested.
 - The WB7022 on USB 3. Dell's HDR needs it.
+- To build: Xcode or the Command Line Tools (Swift 5.9 or later), `xcode-select --install`.
+
+## Install
+
+Download `WB7022-Control.zip` from [Releases](../../releases), unzip it and move the app to Applications.
+
+The app is signed ad hoc, not notarized, so macOS blocks it the first time. Open it once, then click **Open Anyway** in System Settings › Privacy & Security. Or clear the download flag:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/WB7022 Control.app"
+```
 
 ## Build and run
 
@@ -43,6 +55,8 @@ It doesn't take the camera over, so you can change settings while another app is
 ./bundle.sh
 open "WB7022 Control.app"
 ```
+
+`./bundle.sh --universal` builds for Apple silicon and Intel in one binary. Pushing a tag such as `v1.2` runs `.github/workflows/release.yml`, which does that, zips the app and publishes a GitHub release. A locally built app isn't marked as downloaded, so Gatekeeper doesn't block it.
 
 The app icon is drawn by `tools/make-icon.swift`; regenerate it with `swift tools/make-icon.swift Resources/AppIcon.icns`.
 
@@ -138,6 +152,7 @@ Other modes:
 | Mode | Effect |
 |---|---|
 | `--render <png> [--bar] [--focused]` | Draw the controls pane (or, with `--bar`, the chart and preview bar) offscreen |
+| `--render <png> --window [--still <image>]` | Draw the whole window, with the image in place of the preview |
 | `--suggest <id> <file>` | Apply a suggestion, write its check result, restore all settings |
 | `--login-item <on\|off\|status> <file>` | Change or report launch at login |
 | `--hidden` | Start hidden, as a login launch does |

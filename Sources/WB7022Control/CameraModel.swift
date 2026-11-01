@@ -1,4 +1,5 @@
 import AVFoundation
+import AppKit
 import Foundation
 import Observation
 
@@ -36,6 +37,8 @@ final class CameraModel {
     // View-local UI state lives here because @State is unavailable without Xcode.
     var newPresetName = ""
     var vendorDrafts: [UInt8: String] = [:]
+    /// Shown instead of the live preview, for `--render --window` screenshots.
+    @ObservationIgnored var stillPreview: NSImage?
 
     var mirrored: Bool { didSet { defaults.set(mirrored, forKey: Keys.mirrored) } }
     var restoreOnConnect: Bool { didSet { defaults.set(restoreOnConnect, forKey: Keys.restore) } }
